@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use crate::Node;
 
 #[derive(Debug, SimpleObject, RelayNodeObject)]
-#[relay(node_suffix = "t")]
 pub struct Tenant {
     pub id: RelayNodeID<Self>,
     pub name: String,
@@ -22,7 +21,7 @@ impl RelayNode for Tenant {
 
         Ok(Some(
             Tenant {
-                id: RelayNodeID::new_from_str("92ba0c2d-4b4e-4e29-91dd-8f96a078c3ff").unwrap(),
+                id: RelayNodeID::new("92ba0c2d-4b4e-4e29-91dd-8f96a078c3ff"),
                 name: "My Company".to_string(),
                 description: "Testing123".to_string(),
             }

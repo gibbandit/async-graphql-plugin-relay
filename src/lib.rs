@@ -4,17 +4,18 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use std::{any::Any, fmt, marker::PhantomData, str::FromStr};
+use std::{any::Any, fmt, marker::PhantomData};
 
 use async_graphql::{Error, InputValueError, InputValueResult, Scalar, ScalarType, Value};
 
 pub use async_graphql_relay_derive::*;
 use async_trait::async_trait;
-use uuid::Uuid;
+use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 #[doc(hidden)]
 pub use async_trait::async_trait as _async_trait;
-
+#[doc(hidden)]
+pub use base64::{engine::general_purpose::URL_SAFE as _URL_SAFE, Engine as _};
 /// RelayNodeInterface is a trait implemented by the GraphQL interface enum to implement the fetch_node method.
 /// You should refer to the 'RelayInterface' macro which is the recommended way to implement this trait.
 #[async_trait]
@@ -29,11 +30,11 @@ where
 
 /// RelayNodeStruct is a trait implemented by the GraphQL Object to ensure each Object has a globally unique ID.
 /// You should refer to the 'RelayNodeObject' macro which is the recommended way to implement this trait.
-/// You MUST ensure the ID_SUFFIX is unique for each object for issue will occur.
+/// You MUST ensure the ID_TYPENAME is unique for each object for issue will occur.
 pub trait RelayNodeStruct {
-    /// ID_SUFFIX is the suffix appended to the nodes ID to create the relay ID.
+    /// ID_TYPENAME identifies the node type prefixed in the relay ID.
     /// This MUST be unique for each type in the system.
-    const ID_SUFFIX: &'static str;
+    const ID_TYPENAME: &'static str;
 }
 
 /// RelayNode is a trait implemented on the GraphQL Object to define how it should be fetched.
@@ -48,42 +49,50 @@ pub trait RelayNode: RelayNodeStruct {
     async fn get(ctx: RelayContext, id: RelayNodeID<Self>) -> Result<Option<Self::TNode>, Error>;
 }
 
-/// RelayNodeID is a wrapper around a UUID with the use of the 'RelayNodeStruct' trait to ensure each object has a globally unique ID.
+/// RelayNodeID is a wrapper around a ID string with the use of the 'RelayNodeStruct' trait to ensure each object has a globally unique ID.
 #[derive(Clone, PartialEq, Eq)]
-pub struct RelayNodeID<T: RelayNode + ?Sized>(Uuid, PhantomData<T>);
+pub struct RelayNodeID<T: RelayNode + ?Sized>(String, PhantomData<T>);
 
 impl<T: RelayNode> RelayNodeID<T> {
-    /// new creates a new RelayNodeID from a UUID string and a type specified as a generic.
-    pub fn new(uuid: Uuid) -> Self {
-        RelayNodeID(uuid, PhantomData)
+    /// new creates a new RelayNodeID from an ID string and a type specified as a generic.
+    pub fn new(id: &str) -> Self {
+        RelayNodeID(id.to_string(), PhantomData)
     }
 
     /// new_from_relay_id takes in a generic relay ID and converts it into a RelayNodeID.
     pub fn new_from_relay_id(relay_id: String) -> Result<Self, Error> {
-        if relay_id.len() < 32 {
-            return Err(Error::new("Invalid id provided to node query!"));
-        }
-        let (id, _) = relay_id.split_at(32);
-        let uuid = Uuid::parse_str(&id)
-            .map_err(|_err| Error::new("Invalid id provided to node query!"))?;
-        Ok(RelayNodeID(uuid, PhantomData))
-    }
+        let decoded_id_vec = URL_SAFE
+            .decode(relay_id)
+            .map_err(|_err| Error::new("invalid relay id provided to node query!"))?;
+        let decoded_id = String::from_utf8(decoded_id_vec)
+            .map_err(|_err| Error::new("invalid relay id provided to node query!"))?;
 
-    /// new_from_str is a wrapper around 'Uuid::from_str' to create a new RelayNodeID from a UUIDv4 string.
-    pub fn new_from_str(uuid: &str) -> Result<Self, uuid::Error> {
-        Ok(Self::new(Uuid::from_str(uuid)?))
+        let id = match decoded_id.split_once(':') {
+            Some((_, id)) => id,
+            None => {
+                return Err(Error::new("Invalid relay id provided to node query!"));
+            }
+        };
+        Ok(RelayNodeID(id.to_string(), PhantomData))
     }
-
-    /// to_uuid will convert the RelayNodeID into a normal UUID for use in DB queries or internal processing.
-    /// The Uuid from this function is NOT globally unique!
-    pub fn to_uuid(&self) -> Uuid {
-        self.0
+    /// to_id will convert the RelayNodeID into an ID string for use in DB queries or internal processing.
+    /// The id from this function is NOT globally unique!
+    pub fn to_id(&self) -> String {
+        self.0.clone()
     }
 }
 
 impl<T: RelayNode> From<&RelayNodeID<T>> for String {
     fn from(id: &RelayNodeID<T>) -> Self {
-        format!("{}{}", id.0.to_simple().to_string(), T::ID_SUFFIX)
+        let id_string = format!("{}:{}", T::ID_TYPENAME, id.0);
+        URL_SAFE.encode(id_string)
+    }
+}
+
+impl<T: RelayNode> From<&RelayNodeID<T>> for async_graphql::ID {
+    fn from(id: &RelayNodeID<T>) -> Self {
+        let id_string = format!("{}:{}", T::ID_TYPENAME, id.0);
+        async_graphql::ID(URL_SAFE.encode(id_string))
     }
 }
 
@@ -99,11 +108,11 @@ impl<T: RelayNode> fmt::Debug for RelayNodeID<T> {
     }
 }
 
-#[Scalar]
+#[Scalar(name = "ID")]
 impl<T: RelayNode + Send + Sync> ScalarType for RelayNodeID<T> {
     fn parse(value: Value) -> InputValueResult<Self> {
         match value {
-            Value::String(s) => Ok(RelayNodeID::<T>::new_from_str(&s)?),
+            Value::String(s) => Ok(RelayNodeID::<T>::new(&s)),
             _ => Err(InputValueError::expected_type(value)),
         }
     }

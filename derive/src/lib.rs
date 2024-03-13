@@ -9,14 +9,14 @@ extern crate proc_macro;
 #[derive(FromDeriveInput, Default)]
 #[darling(default, attributes(relay))]
 struct RelayNodeObjectAttributes {
-    node_suffix: Option<String>,
+    node_typename: Option<String>,
 }
 
 /// The RelayNodeObject macro is applied to a type to automatically implement the RelayNodeStruct trait.
 /// ```
 /// #[derive(SimpleObject, RelayNodeObject)] // See the 'RelayNodeObject' derive macro
 /// #[graphql(complex)]
-/// #[relay(node_suffix = "u")] // This controls the 'RelayNodeObject' macro. In this case the prefix is shortened to 'u', the default is in the name of the struct.
+/// #[relay(node_typename = "User")] // This controls the 'RelayNodeObject' macro. In this case the prefix is 'User', the default is in the name of the struct.
 /// pub struct User {
 ///     pub id: RelayNodeID<User>,
 ///     pub name: String,
@@ -34,15 +34,15 @@ pub fn derive_relay_node_object(input: TokenStream) -> TokenStream {
         panic!("The 'RelayNodeObject' macro can only be used on structs!");
     }
 
-    let value = if let Some(node_suffix) = attrs.node_suffix {
-        node_suffix
+    let value = if let Some(node_typename) = attrs.node_typename {
+        node_typename
     } else {
         ident.to_string()
     };
 
     quote! {
         impl async_graphql_relay::RelayNodeStruct for #ident {
-            const ID_SUFFIX: &'static str = #value;
+            const ID_TYPENAME: &'static str = #value;
         }
     }
     .into()
@@ -52,7 +52,7 @@ pub fn derive_relay_node_object(input: TokenStream) -> TokenStream {
 /// This enum should contain all types that that exist in your GraphQL schema to work as designed in the Relay server specification.
 /// ```
 /// #[derive(Interface, RelayInterface)] // See the 'RelayInterface' derive macro
-/// #[graphql(field(name = "id", type = "NodeGlobalID"))] // The 'RelayInterface' macro generates a type called '{enum_name}GlobalID' which should be used like this to facilitate using the async_graphql_relay::RelayNodeID for globally unique ID's
+/// #[graphql(field(name = "id", type = "ID"))]
 /// pub enum Node {
 ///     User(User),
 ///     Tenant(Tenant),
@@ -61,27 +61,14 @@ pub fn derive_relay_node_object(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(RelayInterface)]
 pub fn derive_relay_interface(input: TokenStream) -> TokenStream {
-    let DeriveInput { ident, data, .. } = parse_macro_input!(input);
+    let DeriveInput { data, .. } = parse_macro_input!(input);
 
-    let ident = format_ident!("{}GlobalID", ident);
-    let impls;
     let node_matchers;
     if let Data::Enum(data) = &data {
-        impls = data.variants.iter().map(|variant| {
-            let variant_ident = &variant.ident;
-            quote! {
-                impl std::convert::From<&async_graphql_relay::RelayNodeID<#variant_ident>> for #ident {
-                    fn from(t: &async_graphql_relay::RelayNodeID<#variant_ident>) -> Self {
-                        #ident(String::from(t))
-                    }
-                }
-            }
-        });
-
         node_matchers = data.variants.iter().map(|variant| {
             let variant_ident = &variant.ident;
             quote! {
-                <#variant_ident as async_graphql_relay::RelayNodeStruct>::ID_SUFFIX => {
+                <#variant_ident as async_graphql_relay::RelayNodeStruct>::ID_TYPENAME => {
                     <#variant_ident as async_graphql_relay::RelayNode>::get(
                         ctx,
                         async_graphql_relay::RelayNodeID::<#variant_ident>::new_from_relay_id(
@@ -98,30 +85,23 @@ pub fn derive_relay_interface(input: TokenStream) -> TokenStream {
     }
 
     quote! {
-                #[derive(Clone, Debug)]
-        pub struct #ident(String);
-
-        #(#impls)*
-
-        #[async_graphql::Scalar(name = "RelayNodeID")]
-        impl async_graphql::ScalarType for #ident {
-            fn parse(value: async_graphql::Value) -> async_graphql::InputValueResult<Self> {
-                unimplemented!();
-            }
-
-            fn to_value(&self) -> async_graphql::Value {
-                async_graphql::Value::String(self.0.clone())
-            }
-        }
-
         #[async_graphql_relay::_async_trait]
         impl async_graphql_relay::RelayNodeInterface for Node {
             async fn fetch_node(ctx: async_graphql_relay::RelayContext, relay_id: String) -> Result<Self, async_graphql::Error> {
-                if relay_id.len() < 32 {
-                    return Err(async_graphql::Error::new("Invalid id provided to node query!"));
-                }
-                let (_, suffix) = relay_id.split_at(32);
-                match suffix {
+                use async_graphql_relay::*;
+                let decoded_id_vec = async_graphql_relay::_URL_SAFE
+            .decode(relay_id.clone())
+            .map_err(|_err| Error::new("invalid relay id provided to node query!"))?;
+        let decoded_id = String::from_utf8(decoded_id_vec)
+            .map_err(|_err| Error::new("invalid relay id provided to node query!"))?;
+
+        let (typename, id) = match decoded_id.split_once(':') {
+            Some((typename, id)) => (typename, id),
+            None => {
+                return Err(Error::new("Invalid relay id provided to node query!"));
+            }
+        };
+                match typename {
                     #(#node_matchers)*
                     _ => Err(async_graphql::Error::new("A node with the specified id could not be found!")),
                 }
