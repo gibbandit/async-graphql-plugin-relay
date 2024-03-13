@@ -8,14 +8,15 @@ use std::{any::Any, fmt, marker::PhantomData};
 
 use async_graphql::{Error, InputValueError, InputValueResult, Scalar, ScalarType, Value};
 
-pub use async_graphql_relay_derive::*;
+pub use async_graphql_plugin_relay_derive::*;
 use async_trait::async_trait;
+#[allow(unused_imports)]
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 #[doc(hidden)]
 pub use async_trait::async_trait as _async_trait;
 #[doc(hidden)]
-pub use base64::{engine::general_purpose::URL_SAFE as _URL_SAFE, Engine as _};
+pub use base64::{engine::general_purpose::URL_SAFE as _URL_SAFE, Engine as _Engine};
 /// RelayNodeInterface is a trait implemented by the GraphQL interface enum to implement the fetch_node method.
 /// You should refer to the 'RelayInterface' macro which is the recommended way to implement this trait.
 #[async_trait]

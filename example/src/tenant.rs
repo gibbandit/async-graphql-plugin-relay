@@ -1,5 +1,5 @@
 use async_graphql::{Error, SimpleObject};
-use async_graphql_relay::{RelayContext, RelayNode, RelayNodeID, RelayNodeObject};
+use async_graphql_plugin_relay::{RelayContext, RelayNode, RelayNodeID, RelayNodeObject};
 use async_trait::async_trait;
 
 use crate::Node;

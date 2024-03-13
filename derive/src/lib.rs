@@ -41,7 +41,7 @@ pub fn derive_relay_node_object(input: TokenStream) -> TokenStream {
     };
 
     quote! {
-        impl async_graphql_relay::RelayNodeStruct for #ident {
+        impl async_graphql_plugin_relay::RelayNodeStruct for #ident {
             const ID_TYPENAME: &'static str = #value;
         }
     }
@@ -68,10 +68,10 @@ pub fn derive_relay_interface(input: TokenStream) -> TokenStream {
         node_matchers = data.variants.iter().map(|variant| {
             let variant_ident = &variant.ident;
             quote! {
-                <#variant_ident as async_graphql_relay::RelayNodeStruct>::ID_TYPENAME => {
-                    <#variant_ident as async_graphql_relay::RelayNode>::get(
+                <#variant_ident as async_graphql_plugin_relay::RelayNodeStruct>::ID_TYPENAME => {
+                    <#variant_ident as async_graphql_plugin_relay::RelayNode>::get(
                         ctx,
-                        async_graphql_relay::RelayNodeID::<#variant_ident>::new_from_relay_id(
+                        async_graphql_plugin_relay::RelayNodeID::<#variant_ident>::new_from_relay_id(
                             relay_id.to_string(),
                         )?,
                     )
@@ -85,11 +85,11 @@ pub fn derive_relay_interface(input: TokenStream) -> TokenStream {
     }
 
     quote! {
-        #[async_graphql_relay::_async_trait]
-        impl async_graphql_relay::RelayNodeInterface for Node {
-            async fn fetch_node(ctx: async_graphql_relay::RelayContext, relay_id: String) -> Result<Self, async_graphql::Error> {
-                use async_graphql_relay::*;
-                let decoded_id_vec = async_graphql_relay::_URL_SAFE
+        #[async_graphql_plugin_relay::_async_trait]
+        impl async_graphql_plugin_relay::RelayNodeInterface for Node {
+            async fn fetch_node(ctx: async_graphql_plugin_relay::RelayContext, relay_id: String) -> Result<Self, async_graphql::Error> {
+                use async_graphql_plugin_relay::_Engine as _;
+                let decoded_id_vec = async_graphql_plugin_relay::_URL_SAFE
             .decode(relay_id.clone())
             .map_err(|_err| Error::new("invalid relay id provided to node query!"))?;
         let decoded_id = String::from_utf8(decoded_id_vec)
