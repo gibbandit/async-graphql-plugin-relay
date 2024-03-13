@@ -1,5 +1,5 @@
 [package]
-name = "async-graphql-relay-example"
+name = "async-graphql-plugin-relay-example"
 version = "0.1.0"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 async-graphql = "7"
 actix-web = "4.3.1"
 async-graphql-actix-web = "7"
-async-graphql-relay = { path = "../" }
+async-graphql-plugin-relay = { path = "../" }
 async-trait = "0.1.68"
 
 

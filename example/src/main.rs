@@ -38,9 +38,14 @@ impl QueryRoot {
         }
     }
 
-    async fn node(&self, id: String) -> Result<Node, Error> {
-        let ctx = RelayContext::new::<String>("Hello World".to_string()); // This could include your database connection and/or any other context required in your implementations of the 'RelayNode' trait.
-        Node::fetch_node(ctx, id).await
+    async fn nodes(&self, ids: Vec<String>) -> Vec<Result<Node, Error>> {
+        let mut nodes = Vec::new();
+        for id in ids {
+            let ctx = RelayContext::new::<String>("Hello World".to_string());
+            let node = Node::fetch_node(ctx, id).await;
+            nodes.push(node);
+        }
+        nodes
     }
 }
 
