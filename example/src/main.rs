@@ -38,6 +38,11 @@ impl QueryRoot {
         }
     }
 
+    async fn node(&self, id: String) -> Result<Node, Error> {
+        let ctx = RelayContext::new::<String>("Hello World".to_string());
+        Node::fetch_node(ctx, id).await
+    }
+
     async fn nodes(&self, ids: Vec<String>) -> Vec<Result<Node, Error>> {
         let mut nodes = Vec::new();
         for id in ids {

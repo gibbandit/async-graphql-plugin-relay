@@ -1,11 +1,10 @@
-use async_graphql::{ComplexObject, Error, SimpleObject};
+use async_graphql::{Error, SimpleObject};
 use async_graphql_plugin_relay::{RelayContext, RelayNode, RelayNodeID, RelayNodeObject};
 use async_trait::async_trait;
 
 use crate::Node;
 
 #[derive(Debug, SimpleObject, RelayNodeObject)]
-#[graphql(complex)]
 pub struct User {
     pub id: RelayNodeID<Self>,
     pub name: String,
@@ -28,12 +27,5 @@ impl RelayNode for User {
             }
             .into(),
         ))
-    }
-}
-
-#[ComplexObject]
-impl User {
-    pub async fn test(&self) -> String {
-        "testing".to_string()
     }
 }

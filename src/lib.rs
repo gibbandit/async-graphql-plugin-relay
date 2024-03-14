@@ -148,60 +148,6 @@ impl RelayContext {
     }
 }
 
-#[cfg(feature = "sea-orm")]
-impl<T: RelayNode> From<RelayNodeID<T>> for sea_orm::Value {
-    fn from(source: RelayNodeID<T>) -> Self {
-        sea_orm::Value::Uuid(Some(Box::new(source.to_uuid())))
-    }
-}
-
-#[cfg(feature = "sea-orm")]
-impl<T: RelayNode> sea_orm::TryGetable for RelayNodeID<T> {
-    fn try_get(
-        res: &sea_orm::QueryResult,
-        pre: &str,
-        col: &str,
-    ) -> Result<Self, sea_orm::TryGetError> {
-        let val: Uuid = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
-        Ok(RelayNodeID::<T>::new(val))
-    }
-}
-
-#[cfg(feature = "sea-orm")]
-impl<T: RelayNode> sea_orm::sea_query::Nullable for RelayNodeID<T> {
-    fn null() -> sea_orm::Value {
-        sea_orm::Value::Uuid(None)
-    }
-}
-
-#[cfg(feature = "sea-orm")]
-impl<T: RelayNode> sea_orm::sea_query::ValueType for RelayNodeID<T> {
-    fn try_from(v: sea_orm::Value) -> Result<Self, sea_orm::sea_query::ValueTypeErr> {
-        match v {
-            sea_orm::Value::Uuid(Some(x)) => Ok(RelayNodeID::<T>::new(*x)),
-            _ => Err(sea_orm::sea_query::ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        stringify!(Uuid).to_owned()
-    }
-
-    fn column_type() -> sea_orm::sea_query::ColumnType {
-        sea_orm::sea_query::ColumnType::Uuid
-    }
-}
-
-#[cfg(feature = "sea-orm")]
-impl<T: RelayNode> sea_orm::TryFromU64 for RelayNodeID<T> {
-    fn try_from_u64(_: u64) -> Result<Self, sea_orm::DbErr> {
-        Err(sea_orm::DbErr::Exec(format!(
-            "{} cannot be converted from u64",
-            std::any::type_name::<T>()
-        )))
-    }
-}
-
 #[cfg(feature = "serde")]
 impl<T: RelayNode> serde::Serialize for RelayNodeID<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

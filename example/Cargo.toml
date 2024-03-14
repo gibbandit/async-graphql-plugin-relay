@@ -5,12 +5,8 @@ authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2018"
 
 [dependencies]
+async-graphql-plugin-relay = { path = "../" }
 async-graphql = "7"
 actix-web = "4.3.1"
 async-graphql-actix-web = "7"
-async-graphql-plugin-relay = { path = "../" }
 async-trait = "0.1.68"
-
-
-[patch.crates-io]
-sea-orm = { git = "https://github.com/SeaQL/sea-orm.git", branch = "model-with-generics" } # Awaiting release
